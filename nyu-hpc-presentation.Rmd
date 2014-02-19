@@ -77,6 +77,8 @@ bench/min(bench)
 - Most common functions (matrix math, etc) are already in compiled C++/FORTRAN, so gains on simple functions will be limited.
 - Adding in heavier computations gives more of an advantage to compiled functions:
 
+. . .
+
 ```{r}
 fun<-function(x,y=Y,g=G) {
   a <- 1:5000 * g
@@ -93,8 +95,6 @@ fun<-function(x,y=Y,g=G) {
 bench2<-c(repfn(fun),repfn(fun,cmp=TRUE))
 bench2/min(bench2)
 ```
-
-
 
 ## JIT Compiling
 - What in the hell is a jit?
@@ -180,8 +180,11 @@ bench/min(bench)
 
 - For stan, you don't get much help. Do your parallelism in such a way that you get a list of `stanfit` objects, then combine them with the helper function `sflist2stanfit`.
 
-- So you could do something like:   
-```
+- So you could do something like:
+
+. . .
+
+```{r eval=FALSE}
 parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, refresh = -1))
 ```
 
@@ -259,7 +262,7 @@ parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, r
 
 . . .
 
-```
+```{.bash}
 #! /usr/bin/env bash
 set -e
 
@@ -437,7 +440,7 @@ User NetID
 
 . . .
 
-```
+```{.bash}
 #PBS -V
 #PBS -S /bin/bash
 #PBS -N ocr-2014-02-19
@@ -502,7 +505,9 @@ User NetID
 ## LDA CV Script
 - `hpc.R`
 
-```
+. . .
+
+```{r eval=FALSE,tidy=FALSE}
 args <- commandArgs(trailingOnly = TRUE)
 
 if(length(args)!=2) stop(paste0("Not the right number of arguments!",args))
@@ -545,9 +550,13 @@ save(list=name,file=paste0(name,".Rdata"))
 - But note as well that the parameters passed to R aren't right. I don't want to estimate a model with INSERTMIN topics.
 - I use a helper script to set things up for me.
 
+
+## PBS Script
 - `ldacv.pbs`
 
-```
+. . .
+
+```{.bash}
 #!/bin/bash
 #PBS -V
 #PBS -S /bin/bash
@@ -579,7 +588,7 @@ exit 0;
 
 . . .
 
-```
+```{.bash}
 #!/bin/bash
 set -e
 
@@ -594,7 +603,9 @@ rm ldacv.${1}-${2}.pbs
 - And then to take all of these small data files and combine them, I can use a simple R script.
 - This will collect all the data files (of the format I created) in the current directory and put them into a single new matrix.
 
-```
+. . .
+
+```{r eval=FALSE}
 files<-dir()
 files<-files[grep("cv.out",files)]
 
@@ -612,6 +623,8 @@ save(cv.out,file="ldacv_all.Rdata")
 
 ## Output
 - All that work, and basically all I got was this graph:
+
+. . .
 
 ```{r perplot,fig.cap='',fig.height=6,fig.width=6,echo=FALSE}
 library(png)
@@ -635,7 +648,7 @@ grid.raster(img)
 
 . . .
 
-```
+```{.bash}
 #PBS -l nodes=<N/12>:ppn=12
 ...
 cd directory_for_job1
