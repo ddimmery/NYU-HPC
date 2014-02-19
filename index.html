@@ -105,7 +105,7 @@ repfn &lt;-<span class="st"> </span>function(f, <span class="dt">n =</span> <spa
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">forLoop =</span> <span class="kw">repfn</span>(dofor), <span class="dt">tapply =</span> <span class="kw">repfn</span>(dotapp))
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>## forLoop  tapply 
-##   2.285   1.000</code></pre>
+##   3.144   1.000</code></pre>
 </div>
 </section>
 <section id="compiling-r-code" class="slide level2">
@@ -126,7 +126,7 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench,
 )
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp 
-##      3.140      1.374      3.052      3.081      1.000</code></pre>
+##      3.144      1.000      3.083      3.150      1.005</code></pre>
 </div>
 </section>
 <section id="compilation-speedup" class="slide level2">
@@ -152,7 +152,7 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 }
 bench2 &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">repfn</span>(fun), <span class="kw">repfn</span>(fun, <span class="dt">cmp =</span> <span class="ot">TRUE</span>))
 bench2/<span class="kw">min</span>(bench2)</code></pre>
-<pre><code>## [1] 1.000 1.102</code></pre>
+<pre><code>## [1] 1.336 1.000</code></pre>
 </section>
 <section id="jit-compiling" class="slide level2">
 <h1>JIT Compiling</h1>
@@ -197,9 +197,9 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class
 <span class="kw">stopCluster</span>(cl)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp  tappClus1 
-##      6.820      2.985      6.629      6.691      2.172      2.397 
+##      6.840      2.176      6.707      6.854      2.186      2.417 
 ##  tappClus2    forClus 
-##      1.000      2.804</code></pre>
+##      1.000      2.717</code></pre>
 </div>
 </section>
 <section id="more-multiprocess" class="slide level2">
@@ -226,22 +226,23 @@ cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(<span class
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class="dt">tappForEach =</span> (t1 -<span class="st"> </span>t0)/<span class="dv">100</span>)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##     forLoop      tapply     forComp  forPreComp    tappComp   tappClus1 
-##       6.820       2.985       6.629       6.691       2.172       2.397 
+##       6.840       2.176       6.707       6.854       2.186       2.417 
 ##   tappClus2     forClus tappForEach 
-##       1.000       2.804       1.816</code></pre>
+##       1.000       2.717       1.753</code></pre>
 </div>
 </section>
 <section id="multiprocess-jagsstan" class="slide level2">
 <h1>Multiprocess JAGS/stan</h1>
 <ul>
-<li class="fragment">Conceptually, it's trivial to parallelize chains in MCMC.</li>
-<li class="fragment">For JAGS, there is a package available, <code>dclone</code> (for data cloning) that includes helpful functions to chains in parallel.</li>
-<li class="fragment">Check the documentation, but it looks pretty easy. <code>parJagsModel</code> and <code>parCodaSamples</code></li>
-<li class="fragment">This package should take care of instantiating each pRNG with sufficiently different seeds.</li>
-<li class="fragment">For stan, you don't get much help. Do your parallelism in such a way that you get a list of <code>stanfit</code> objects, then combine them with the helper function <code>sflist2stanfit</code>.</li>
-<li class="fragment">So you could do something like <code>parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, refresh = -1))</code></li>
-<li class="fragment">There are examples in the R documentation for <code>sflist2stanfit</code>, so check that out.</li>
-<li class="fragment">By iterating the chainid, and having a consistent seed, stan should ensure that you get different pRNG sequences.</li>
+<li class="fragment"><p>Conceptually, it's trivial to parallelize chains in MCMC.</p></li>
+<li class="fragment"><p>For JAGS, there is a package available, <code>dclone</code> (for data cloning) that includes helpful functions to chains in parallel.</p></li>
+<li class="fragment"><p>Check the documentation, but it looks pretty easy. <code>parJagsModel</code> and <code>parCodaSamples</code></p></li>
+<li class="fragment"><p>This package should take care of instantiating each pRNG with sufficiently different seeds.</p></li>
+<li class="fragment"><p>For stan, you don't get much help. Do your parallelism in such a way that you get a list of <code>stanfit</code> objects, then combine them with the helper function <code>sflist2stanfit</code>.</p></li>
+<li class="fragment"><p>So you could do something like:</p>
+<pre><code>parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, refresh = -1))</code></pre></li>
+<li class="fragment"><p>There are examples in the R documentation for <code>sflist2stanfit</code>, so check that out.</p></li>
+<li class="fragment"><p>By iterating the chainid, and having a consistent seed, stan should ensure that you get different pRNG sequences.</p></li>
 </ul>
 </section>
 <section id="basic-nix-files-and-folders" class="slide level2">
