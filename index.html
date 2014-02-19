@@ -105,7 +105,7 @@ repfn &lt;-<span class="st"> </span>function(f, <span class="dt">n =</span> <spa
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">forLoop =</span> <span class="kw">repfn</span>(dofor), <span class="dt">tapply =</span> <span class="kw">repfn</span>(dotapp))
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>## forLoop  tapply 
-##    3.02    1.00</code></pre>
+##     3.1     1.0</code></pre>
 </div>
 </section>
 <section id="compiling-r-code" class="slide level2">
@@ -126,7 +126,7 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench,
 )
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp 
-##      3.020      1.000      3.338      3.283      1.034</code></pre>
+##      3.100      1.000      2.945      3.095      1.031</code></pre>
 </div>
 </section>
 <section id="compilation-speedup" class="slide level2">
@@ -152,7 +152,7 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 }
 bench2 &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">repfn</span>(fun), <span class="kw">repfn</span>(fun, <span class="dt">cmp =</span> <span class="ot">TRUE</span>))
 bench2/<span class="kw">min</span>(bench2)</code></pre>
-<pre><code>## [1] 1.285 1.000</code></pre>
+<pre><code>## [1] 1.000 1.018</code></pre>
 </section>
 <section id="jit-compiling" class="slide level2">
 <h1>JIT Compiling</h1>
@@ -197,9 +197,9 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class
 <span class="kw">stopCluster</span>(cl)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp  tappClus1 
-##      6.940      2.298      7.672      7.544      2.377      2.409 
+##      6.956      2.244      6.607      6.945      2.314      2.476 
 ##  tappClus2    forClus 
-##      1.000      2.767</code></pre>
+##      1.000      2.823</code></pre>
 </div>
 </section>
 <section id="more-multiprocess" class="slide level2">
@@ -226,9 +226,9 @@ cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(<span class
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class="dt">tappForEach =</span> (t1 -<span class="st"> </span>t0)/<span class="dv">100</span>)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##     forLoop      tapply     forComp  forPreComp    tappComp   tappClus1 
-##       6.940       2.298       7.672       7.544       2.377       2.409 
+##       6.956       2.244       6.607       6.945       2.314       2.476 
 ##   tappClus2     forClus tappForEach 
-##       1.000       2.767       1.708</code></pre>
+##       1.000       2.823       1.881</code></pre>
 </div>
 </section>
 <section id="basic-nix-files-and-folders" class="slide level2">
@@ -263,6 +263,9 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 <li class="fragment"><code>cp src dst</code> to copy file <code>src</code> to <code>dst</code></li>
 <li class="fragment"><code>rm src</code> to remove (delete) <code>src</code></li>
 <li class="fragment">Make them recursive by adding the <code>-r</code> flag to them.</li>
+<li class="fragment">I use <code>rsync</code> to move files to and from the cluster, but you can also use WinSCP or gFTP or similar program.</li>
+<li class="fragment">Basic syntax is <code>rsync -azvr src dst</code> - There are some funky things with trailing slashes. (read the manpage)</li>
+<li class="fragment">These programs will need to have the <code>hpctunnel</code> active, first, and then you can log onto the individual clusters to transfer files.</li>
 </ul>
 </section>
 <section id="standard-input-output" class="slide level2">
@@ -310,6 +313,42 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 <li class="fragment">Some variables are &quot;global&quot;, in the sense that they're pre-existing once you instantiate a shell.</li>
 <li class="fragment"><code>$PATH</code> is your &quot;search path&quot; which lists (in order) where the shell will search for executable files.</li>
 <li class="fragment">Add a new folder to the path with <code>export PATH=/home/ddd281/bin:$PATH</code></li>
+</ul>
+</section>
+<section id="example" class="slide level2">
+<h1>Example</h1>
+<ul>
+<li class="fragment"><code>nyuhpc_update.sh</code></li>
+</ul>
+<div class="fragment">
+<pre><code>#! /usr/bin/env bash
+set -e
+
+if [ &quot;`ps aux |grep hpctunnel|wc -l`&quot; -lt &quot;2&quot; ] ; then 
+  echo &quot;Need to have HPC&#39;s SSH tunnel active. Run ssh hpctunnel&quot;
+  exit 0;
+fi
+
+if [ &quot;$1&quot; != &quot;pdfs&quot; ]; then
+  rsync -avzr --exclude &#39;*.pdf&#39; --delete cpp/ bowery:~/ocr_files/
+  exit 0;
+fi
+
+rsync -azvr --delete cpp/ bowery:~/ocr_files/
+
+exit 0;</code></pre>
+</div>
+</section>
+<section id="extra-resources" class="slide level2">
+<h1>Extra Resources</h1>
+<ul>
+<li class="fragment">Bash is Turing complete, so you can do &quot;anything&quot;.</li>
+<li class="fragment">It does some weird things, though (look into the differences in quotation marks in bash)</li>
+<li class="fragment">There are a ton more places to look for inormation on shell scripts.</li>
+<li class="fragment"><a href="http://www.tldp.org/LDP/Bash-Beginners-Guide/html/">Bash Beginner's Guide</a></li>
+<li class="fragment"><a href="http://www.tldp.org/LDP/abs/html/">Advanced Bash-Scripting Guide</a></li>
+<li class="fragment"><a href="http://en.wikibooks.org/wiki/Bash_Shell_Scripting">Bash Shell Scripting Wikibook</a></li>
+<li class="fragment">And many many more</li>
 </ul>
 </section>
 <section id="now-onto-hpc" class="slide level2">
@@ -560,6 +599,7 @@ User NetID</code></pre>
 <li class="fragment">This would need to go in your pbs script before you try to run an R script.</li>
 <li class="fragment">(Similarly for Stata)</li>
 <li class="fragment">One hiccup, is you need to ensure that the <code>module</code> command is available:<br /><code>source /etc/profile.d/env-modules.sh</code></li>
+<li class="fragment">If there's time, I'll talk about compiling software at the end.</li>
 </ul>
 </section>
 <section id="example-time" class="slide level2">
@@ -726,6 +766,31 @@ wait</code></pre>
 <li class="fragment">Always put <code>set -e</code> at the start of shell scripts! This will make it quit immediately upon encountering an error.</li>
 </ul>
 </div>
+</section>
+<section id="compiling-r" class="slide level2">
+<h1>Compiling R</h1>
+<ul>
+<li class="fragment">First, I'll just talk about how to compile R, because I imagine this is the most common thing you'll need to compile.</li>
+<li class="fragment">Typically, compilation is accomplished with the following:<br /><code>./configure</code><br /><code>make &amp;&amp; make install</code></li>
+<li class="fragment">But this would install systemwide, which we can't do on the HPC.</li>
+<li class="fragment">So we have to add <code>--prefix=/home/ddd281/local</code> to <code>configure</code></li>
+<li class="fragment">We can then do <code>make &amp;&amp; make install</code> as normal. This will install R to the appropriate directory.</li>
+<li class="fragment">This should work, but if not, you may need to ensure that the compiler is installed.</li>
+<li class="fragment"><code>module load gcc/4.7.3</code> (on bowery, versions may be different, so check <code>module avail</code>)</li>
+<li class="fragment">You can then either add <code>\home\ddd281\local\bin</code> to your PATH, or you can just call R with <code>\home\ddd281\local\bin\Rscript</code></li>
+</ul>
+</section>
+<section id="compiling-your-own-code" class="slide level2">
+<h1>Compiling your own code</h1>
+<ul>
+<li class="fragment">Compiling your own code can be a real pain.</li>
+<li class="fragment">If you need to link it to a library, you'll need to load the appropriate module, or install the library to your home directory.</li>
+<li class="fragment">NYU recommends using the Intel Compiler suite (which you'll need to load)<br /><code>module load intel/11.1.046</code></li>
+<li class="fragment">And then compile with <code>icc</code> / <code>icpc</code> / etc</li>
+<li class="fragment">You probably also want to use some optimization flags. NYU provides the example of:<br /><code>-O2 -fPIC -align -Zp8 -axP -unroll -xP -ip</code></li>
+<li class="fragment">I found that I had to add the flag <code>-shared-intel</code> to get my C++ to compile properly.</li>
+<li class="fragment">This whole process is a minefield, though. Be prepared to use Google.</li>
+</ul>
 </section>
     </div>
   </div>
