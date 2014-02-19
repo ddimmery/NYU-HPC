@@ -172,7 +172,7 @@ bench/min(bench)
 
 - Conceptually, it's trivial to parallelize chains in MCMC.
 
-- For JAGS, there is a package available, `dclone` (for data cloning) that includes helpful functions to chains in parallel.
+- For JAGS, there is a package available, `dclone` (for data cloning) that includes helpful functions to run chains in parallel.
 
 - Check the documentation, but it looks pretty easy. `parJagsModel` and `parCodaSamples`
 
