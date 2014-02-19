@@ -168,6 +168,16 @@ bench<-c(bench,tappForEach=(t1-t0)/100)
 bench/min(bench)
 ```
 
+## Multiprocess JAGS/stan
+- Conceptually, it's trivial to parallelize chains in MCMC.
+- For JAGS, there is a package available, `dclone` (for data cloning) that includes helpful functions to chains in parallel.
+- Check the documentation, but it looks pretty easy. `parJagsModel` and `parCodaSamples`
+- This package should take care of instantiating each pRNG with sufficiently different seeds.
+- For stan, you don't get much help. Do your parallelism in such a way that you get a list of `stanfit` objects, then combine them with the helper function `sflist2stanfit`.
+- So you could do something like `parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, refresh = -1))`
+- There are examples in the R documentation for `sflist2stanfit`, so check that out.
+- By iterating the chainid, and having a consistent seed, stan should ensure that you get different pRNG sequences.
+
 ## Basic \*NIX files and folders
 - User specific folders will have my NETID (ddd281), replace with your own.
 - Folders are notated as `\home\ddd281\bin` (my "home" directory)
