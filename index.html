@@ -1,42 +1,758 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>NYU-HPC by ddimmery</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="author" content="Drew Dimmery drewd@nyu.edu" />
+  <meta name="dcterms.date" content="2014-02-19" />
+  <title>NYU HPC</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="reveal.js/css/reveal.min.css"/>
+    <style type="text/css">code{white-space: pre;}</style>
+    <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+    </style>
+    <link rel="stylesheet" href="reveal.js/css/theme/simple.css" id="theme">
+  <link rel="stylesheet" media="print" href="reveal.js/css/print/pdf.css" />
+  <!--[if lt IE 9]>
+  <script src="reveal.js/lib/js/html5shiv.js"></script>
+  <![endif]-->
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-  </head>
-  <body>
-    <div class="wrapper">
-      <header>
-        <h1>NYU-HPC</h1>
-        <p></p>
+<section>
+    <h1 class="title">NYU HPC</h1>
+    <h2 class="author">Drew Dimmery <script type="text/javascript">
+<!--
+h='&#110;&#x79;&#x75;&#46;&#x65;&#100;&#x75;';a='&#64;';n='&#100;&#114;&#x65;&#x77;&#100;';e=n+a+h;
+document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'">'+e+'<\/'+'a'+'>');
+// -->
+</script><noscript>&#100;&#114;&#x65;&#x77;&#100;&#32;&#x61;&#116;&#32;&#110;&#x79;&#x75;&#32;&#100;&#x6f;&#116;&#32;&#x65;&#100;&#x75;</noscript></h2>
+    <h3 class="date">February 19, 2014</h3>
+</section>
 
-        <p class="view"><a href="https://github.com/ddimmery/NYU-HPC">View the Project on GitHub <small>ddimmery/NYU-HPC</small></a></p>
+<section id="structure-of-this-talk" class="slide level2">
+<h1>Structure of this Talk</h1>
+<ol type="1">
+<li class="fragment">&quot;Basic&quot; R optimization</li>
+<li class="fragment">Delve into some necessary UNIX magic</li>
+<li class="fragment">Talk about some basics of HPC</li>
+<li class="fragment">Specifics of NYU's HPC</li>
+<li class="fragment">Examples</li>
+</ol>
+<ul>
+<li class="fragment">Please interrupt with questions / comments / insults!</li>
+</ul>
+</section>
+<section id="r-optimization" class="slide level2">
+<h1>R optimization</h1>
+<ul>
+<li class="fragment">I will speak (briefly) about two forms of optimization:
+<ul>
+<li class="fragment">Compilation</li>
+<li class="fragment">Multi-process (there is no multi-threading)</li>
+</ul></li>
+</ul>
+</section>
+<section id="travelling-example" class="slide level2">
+<h1>Travelling example</h1>
+<ul>
+<li class="fragment">For the next bit, I'm going to create an example which will travel with us (for the sake of benchmarks)</li>
+<li class="fragment">We're going to consider the following task:
+<ul>
+<li class="fragment">Given a vector of 5000 values, take the mean of the first 25 values for each of 100 equally sized groups.</li>
+</ul></li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">set.seed</span>(<span class="dv">20140219</span>)
+Y &lt;-<span class="st"> </span><span class="kw">rnorm</span>(<span class="dv">5000</span>, <span class="kw">rep</span>(<span class="kw">c</span>(<span class="dv">1</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">50</span>), <span class="kw">rep</span>(<span class="dv">1000</span>, <span class="dv">5</span>)))
+Y &lt;-<span class="st"> </span>Y[<span class="kw">sample</span>(<span class="dv">5000</span>)]
+G &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="dv">1</span>:<span class="dv">100</span>, <span class="kw">rep</span>(<span class="dv">50</span>, <span class="dv">100</span>))
+dofor &lt;-<span class="st"> </span>function(x, <span class="dt">y =</span> Y, <span class="dt">g =</span> G) {
+    for (i in <span class="kw">unique</span>(g)) <span class="kw">mean</span>(y[g ==<span class="st"> </span>i])
+}
+dotapp &lt;-<span class="st"> </span>function(x, <span class="dt">y =</span> Y, <span class="dt">g =</span> G) {
+    <span class="kw">tapply</span>(y, g, function(z) <span class="kw">mean</span>(z))
+}
+repfn &lt;-<span class="st"> </span>function(f, <span class="dt">n =</span> <span class="dv">100</span>, <span class="dt">cmp =</span> <span class="ot">FALSE</span>) {
+    tm0 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+    if (cmp ==<span class="st"> </span><span class="ot">TRUE</span>) 
+        f &lt;-<span class="st"> </span><span class="kw">cmpfun</span>(f)
+    <span class="kw">replicate</span>(n, <span class="kw">f</span>(<span class="dv">0</span>))
+    tm1 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+    (tm1 -<span class="st"> </span>tm0)/n
+}
+bench &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">forLoop =</span> <span class="kw">repfn</span>(dofor), <span class="dt">tapply =</span> <span class="kw">repfn</span>(dotapp))
+bench/<span class="kw">min</span>(bench)</code></pre>
+<pre><code>## forLoop  tapply 
+##    3.02    1.00</code></pre>
+</div>
+</section>
+<section id="compiling-r-code" class="slide level2">
+<h1>Compiling R code</h1>
+<ul>
+<li class="fragment">For a while now, R has shipped with the <code>compiler</code> package pre-installed.</li>
+<li class="fragment">This allows us to (sometimes) speed things up.</li>
+<li class="fragment">Compiling is &quot;slow&quot;, but running compiled code is &quot;fast&quot;.</li>
+<li class="fragment">(But remember that many functions in R are already compiled)</li>
+<li class="fragment">Compile a function with <code>cmpfun</code></li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">require</span>(compiler)
+bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench,
+  <span class="dt">forComp=</span><span class="kw">repfn</span>(dofor,<span class="dt">cmp=</span><span class="ot">TRUE</span>),
+  <span class="dt">forPreComp=</span><span class="kw">repfn</span>(<span class="kw">cmpfun</span>(dofor)),
+  <span class="dt">tappComp=</span><span class="kw">repfn</span>(dotapp,<span class="dt">cmp=</span><span class="ot">TRUE</span>)
+)
+bench/<span class="kw">min</span>(bench)</code></pre>
+<pre><code>##    forLoop     tapply    forComp forPreComp   tappComp 
+##      3.020      1.000      3.338      3.283      1.034</code></pre>
+</div>
+</section>
+<section id="compilation-speedup" class="slide level2">
+<h1>Compilation Speedup</h1>
+<ul>
+<li class="fragment">No huge speedups in this example from compiling.</li>
+<li class="fragment">Speedups will come when the computational burden is heavy (rather than just in subsetting things as shown here).</li>
+<li class="fragment">But large improvements from &quot;vectorization&quot;.</li>
+<li class="fragment">Most common functions (matrix math, etc) are already in compiled C++/FORTRAN, so gains on simple functions will be limited.</li>
+<li class="fragment">Adding in heavier computations gives more of an advantage to compiled functions:</li>
+</ul>
+<pre class="sourceCode r"><code class="sourceCode r">fun &lt;-<span class="st"> </span>function(x, <span class="dt">y =</span> Y, <span class="dt">g =</span> G) {
+    a &lt;-<span class="st"> </span><span class="dv">1</span>:<span class="dv">5000</span> *<span class="st"> </span>g
+    b &lt;-<span class="st"> </span>y -<span class="st"> </span><span class="dv">32</span>
+    ab &lt;-<span class="st"> </span><span class="kw">tcrossprod</span>(a, b)
+    for (i in <span class="dv">1</span>:<span class="dv">5000</span>) {
+        ab[i, i] &lt;-<span class="st"> </span>g[i]%%<span class="dv">3</span>
+    }
+    for (i in <span class="dv">1</span>:<span class="dv">5000</span>) {
+        ab[i, <span class="dv">1</span>] &lt;-<span class="st"> </span>a[i] -<span class="st"> </span>b[i]
+        ab[<span class="dv">1</span>, i] &lt;-<span class="st"> </span>b[i] -<span class="st"> </span>a[i]
+    }
+}
+bench2 &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">repfn</span>(fun), <span class="kw">repfn</span>(fun, <span class="dt">cmp =</span> <span class="ot">TRUE</span>))
+bench2/<span class="kw">min</span>(bench2)</code></pre>
+<pre><code>## [1] 1.285 1.000</code></pre>
+</section>
+<section id="jit-compiling" class="slide level2">
+<h1>JIT Compiling</h1>
+<ul>
+<li class="fragment">What in the hell is a jit?</li>
+<li class="fragment">Just-in-time compiling</li>
+<li class="fragment">It will compile your functions just before you use them for the first time.</li>
+<li class="fragment">Each subsequent execution will be faster.</li>
+<li class="fragment">Chrome does this with javascript.</li>
+<li class="fragment">This is basically the same behavior as we forced automatically in <code>repfn</code>.</li>
+<li class="fragment">You can also tell R to automatically compile functions in packages when you load a package.</li>
+<li class="fragment">To do this, put the following in your <code>.Renviron</code> file in your home directory.</li>
+</ul>
+<div class="fragment">
+<pre><code>R_COMPILE_PKGS=TRUE
+R_ENABLE_JIT=3</code></pre>
+</div>
+</section>
+<section id="multi-process-r" class="slide level2">
+<h1>Multi-process R</h1>
+<ul>
+<li class="fragment">R does not use the 2/4/8/16 cores on your computer unless you make it.</li>
+<li class="fragment">A single R process can only use a single core.</li>
+<li class="fragment">So we have to start up multiple R processes, and then let them talk to each other.</li>
+<li class="fragment">Simplest way to do this is with the <code>snow</code> library.</li>
+<li class="fragment">Stands for Simple Network of Workstations</li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">require</span>(snow)
+cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(<span class="dv">4</span>)
+dotappClus &lt;-<span class="st"> </span>function(x) {
+    <span class="kw">parLapply</span>(cl, <span class="kw">split</span>(Y, G), mean)
+}
+repfnClus &lt;-<span class="st"> </span>function(f, <span class="dt">n =</span> <span class="dv">100</span>) {
+    tm0 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+    <span class="kw">parSapply</span>(cl, <span class="kw">integer</span>(n), f, <span class="dt">y =</span> Y, <span class="dt">g =</span> G)
+    tm1 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+    (tm1 -<span class="st"> </span>tm0)/n
+}
+bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class="dt">tappClus1 =</span> <span class="kw">repfn</span>(dotappClus), <span class="dt">tappClus2 =</span> <span class="kw">repfnClus</span>(dotapp), 
+    <span class="dt">forClus =</span> <span class="kw">repfnClus</span>(dofor))
+<span class="kw">stopCluster</span>(cl)
+bench/<span class="kw">min</span>(bench)</code></pre>
+<pre><code>##    forLoop     tapply    forComp forPreComp   tappComp  tappClus1 
+##      6.940      2.298      7.672      7.544      2.377      2.409 
+##  tappClus2    forClus 
+##      1.000      2.767</code></pre>
+</div>
+</section>
+<section id="more-multiprocess" class="slide level2">
+<h1>More multiprocess</h1>
+<ul>
+<li class="fragment">Four processes, but only a doubling in speed??!</li>
+<li class="fragment">Yes, expect this. There is overhead associated with parallelization.</li>
+<li class="fragment">You'll do better when the numbers returned from your function are small, but the processing power needed to get them is large.</li>
+<li class="fragment">Bootstrapping, for instance, will greatly benefit from parallelization.</li>
+<li class="fragment">Warning: pseudorandom number generation across cores will be correlated.</li>
+<li class="fragment">There are other, more user friendly (to you, maybe) tools for parallelization.</li>
+<li class="fragment">Examples: <code>snowfall</code>, <code>doParallel</code></li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">require</span>(doParallel, <span class="dt">quietly =</span> <span class="ot">TRUE</span>)
+cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(<span class="dv">4</span>)
+<span class="kw">registerDoParallel</span>(cl)
+<span class="kw">invisible</span>({
+    t0 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+    <span class="kw">foreach</span>(<span class="dt">i =</span> <span class="dv">1</span>:<span class="dv">100</span>) %dopar%<span class="st"> </span><span class="kw">dotapp</span>(<span class="dv">0</span>)
+    t1 &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+})
+<span class="kw">stopCluster</span>(cl)
+bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class="dt">tappForEach =</span> (t1 -<span class="st"> </span>t0)/<span class="dv">100</span>)
+bench/<span class="kw">min</span>(bench)</code></pre>
+<pre><code>##     forLoop      tapply     forComp  forPreComp    tappComp   tappClus1 
+##       6.940       2.298       7.672       7.544       2.377       2.409 
+##   tappClus2     forClus tappForEach 
+##       1.000       2.767       1.708</code></pre>
+</div>
+</section>
+<section id="basic-nix-files-and-folders" class="slide level2">
+<h1>Basic *NIX files and folders</h1>
+<ul>
+<li class="fragment">User specific folders will have my NETID (ddd281), replace with your own.</li>
+<li class="fragment">Folders are notated as <code>\home\ddd281\bin</code> (my &quot;home&quot; directory)</li>
+<li class="fragment">This is equivalent to <code>~\bin</code></li>
+<li class="fragment">We navigate between folders with <code>cd \home\ddd281</code></li>
+<li class="fragment">Create a new folder with <code>mkdir \home\ddd281\FolderName</code></li>
+<li class="fragment">To see what is in a directory, use <code>ls -l ~\bin</code></li>
+<li class="fragment">Omitting a folder argument means list the files in the current folder.</li>
+<li class="fragment">On the HPC, you also have some other folders you should know.
+<ul>
+<li class="fragment"><code>\home\ddd281</code> - 5GB limit per user.
+<ul>
+<li class="fragment">Put your source code / scripts / executables here.</li>
+</ul></li>
+<li class="fragment"><code>\scratch\ddd281</code> - This is the &quot;working directory&quot; for running jobs. It has a 5TB limit per user.
+<ul>
+<li class="fragment">Inactive files older than 30 days will be deleted.</li>
+<li class="fragment">NO BACKUPS. Don't leave mission critical work here.</li>
+</ul></li>
+<li class="fragment"><code>\archive\ddd281</code> - This is longer-term storage. It is backed up, and begins with an allocation of 2TB/user. Faculty sponsors can request more.</li>
+</ul></li>
+</ul>
+</section>
+<section id="some-basic-file-commands" class="slide level2">
+<h1>Some basic file commands</h1>
+<ul>
+<li class="fragment"><code>mv src dst</code> to move file <code>src</code> to <code>dst</code> (can also function as a &quot;rename&quot;)</li>
+<li class="fragment"><code>cp src dst</code> to copy file <code>src</code> to <code>dst</code></li>
+<li class="fragment"><code>rm src</code> to remove (delete) <code>src</code></li>
+<li class="fragment">Make them recursive by adding the <code>-r</code> flag to them.</li>
+</ul>
+</section>
+<section id="standard-input-output" class="slide level2">
+<h1>Standard Input / Output</h1>
+<ul>
+<li class="fragment">*NIX is based around simple programs doing simple things.</li>
+<li class="fragment">This leads to the standard input / output paradigm.</li>
+<li class="fragment">Most tools will &quot;put&quot; output directly in the terminal.</li>
+<li class="fragment">But we can redirect output that WOULD have gone to the terminal.</li>
+<li class="fragment">For instance, <code>ls -l | wc -l</code> lists the files in a directory, and then sends that output to the next command.</li>
+<li class="fragment"><code>wc -l</code> counts the lines in the input. So the combined command counts the number of files in a folder.</li>
+<li class="fragment">This behavior is very important to understand.</li>
+<li class="fragment">We can also choose to dump output to a file, as in <code>ls -l &gt; out.file</code></li>
+<li class="fragment">And we can append to a file with <code>ls -l | wc -l &gt;&gt; out.file</code></li>
+<li class="fragment">Sometimes commands will give us errors, and we might like to redirect those to a log file too.</li>
+<li class="fragment">We could do this with <code>&amp;&gt;</code> or <code>&amp;&gt;&gt;</code> (to redirect both stdout and stderr)</li>
+<li class="fragment">If we only wanted stderr (stdout), then use <code>2&gt;</code> (<code>1&gt;</code>)</li>
+<li class="fragment">This will be useful to us later for log files (and general scripting).</li>
+</ul>
+</section>
+<section id="basic-file-editing" class="slide level2">
+<h1>Basic file editing</h1>
+<ul>
+<li class="fragment">Edit a file on the command line with something like <code>vim</code>, <code>nano</code>, <code>emacs</code>, etc (personal preference, but <code>vim</code> is the best)</li>
+<li class="fragment">We can &quot;edit&quot; files via command line using the redirecting we saw before.</li>
+<li class="fragment"><code>echo &quot;This is a line ot text.&quot; &gt; out.file</code></li>
+<li class="fragment">We can use the stream editor (<code>sed</code>) to do simple search and replace using regular expressions.</li>
+<li class="fragment"><code>cat out.file | sed &quot;s/ot /of /&quot; &gt; out.file</code> fixes our typo.</li>
+<li class="fragment">And these sorts of things can be strung together for power and flexibility.</li>
+<li class="fragment">In fact, they can be placed in a shell script.</li>
+</ul>
+</section>
+<section id="shell-scripts" class="slide level2">
+<h1>Shell Scripts</h1>
+<ul>
+<li class="fragment">We create a shell script by creating a plaintext file.</li>
+<li class="fragment">Can name it anything, but typically use extension <code>.sh</code></li>
+<li class="fragment">Put <code>#!\usr\bin\env bash</code> on the first line</li>
+<li class="fragment">Then each line is a command to execute on the shell.</li>
+<li class="fragment">You then make the script executable with <code>chmod +x scriptname.sh</code></li>
+<li class="fragment">Run it with <code>./scriptname.sh</code> or <code>sh scriptname.sh</code></li>
+<li class="fragment">It's easy to pass in command line arguments, too.</li>
+<li class="fragment">Refer to them in the script as <code>$1</code> (for the 1st argument) and so on.</li>
+<li class="fragment">Variables can be saved in the script with <code>VAR=24</code> and recalled with <code>$VAR</code></li>
+<li class="fragment">Some variables are &quot;global&quot;, in the sense that they're pre-existing once you instantiate a shell.</li>
+<li class="fragment"><code>$PATH</code> is your &quot;search path&quot; which lists (in order) where the shell will search for executable files.</li>
+<li class="fragment">Add a new folder to the path with <code>export PATH=/home/ddd281/bin:$PATH</code></li>
+</ul>
+</section>
+<section id="now-onto-hpc" class="slide level2">
+<h1>Now onto HPC!</h1>
+<ul>
+<li class="fragment">NYU HPC is a shared resource.</li>
+<li class="fragment">This means that we don't just &quot;run&quot; a program.</li>
+<li class="fragment">We place a request to run a program in the queue. (I'll call it a &quot;job&quot;)</li>
+<li class="fragment">There are multiple clusters with different capacities.</li>
+<li class="fragment">On each cluster, there are multiple queues with different restrictions.</li>
+<li class="fragment">In practice, I've never seen the available resources saturated, so jobs run immediately.</li>
+<li class="fragment">We control everything via command line.</li>
+<li class="fragment">You may have to do special preparations to get things from your computer to work on the HPC.</li>
+<li class="fragment">For instance, if a program is compiled, you'll (probably) have to recompile on the HPC.</li>
+</ul>
+</section>
+<section id="accessing-the-hpc" class="slide level2">
+<h1>Accessing the HPC</h1>
+<ul>
+<li class="fragment">First, you need a faculty sponsor (Hi, Neal!)</li>
+<li class="fragment">Then, ask for access via <a href="http://hpc.nyu.edu/accounts">http://hpc.nyu.edu/accounts</a></li>
+<li class="fragment">Next, make sure you have SSH. If you have a Mac or Linux computer, you're good. For Windows, get <a href="http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html">PuTTy</a></li>
+<li class="fragment">If you're on Mac or Linux, add the code from the following slide to your <code>~/.ssh/config</code> file (create if it doesn't exit)</li>
+<li class="fragment">In general, the process is to connect to the login machine (&quot;bastion&quot;), and then connect from there to the cluster you want to use.</li>
+<li class="fragment">On Mac or Linux (with the tunnel config), simply open a terminal, run <code>ssh hpctunnel</code> and then login. Then, in a new terminal, you can connect to the cluster you want with <code>ssh usq</code>, <code>ssh bowery</code>, <code>ssh cardiac1</code></li>
+<li class="fragment">On Windows, just log into bastion by connecting to <code>ddd281@hpc.es.its.nyu.edu</code>, login, and then you can simply <code>ssh usq</code> (or whichever cluster)</li>
+</ul>
+</section>
+<section id="ssh-tunneling-config" class="slide level2">
+<h1>SSH Tunneling Config</h1>
+<pre><code>Host hpctunnel
+HostName hpc.es.its.nyu.edu
+LocalForward 8020 usq.es.its.nyu.edu:22
+LocalForward 8021 bowery.es.its.nyu.edu:22
+LocalForward 8022 cardiac1.es.its.nyu.edu:22
+User NetID
+ 
+Host usq
+HostName localhost
+Port 8020
+ForwardX11 yes
+User NetID
+ 
+Host bowery
+HostName localhost
+Port 8021
+ForwardX11 yes
+User NetID
+ 
+Host cardiac1
+HostName localhost
+Port 8022
+ForwardX11 yes
+User NetID</code></pre>
+</section>
+<section id="choosing-a-cluster" class="slide level2">
+<h1>Choosing a Cluster</h1>
+<ul>
+<li class="fragment">Bowery</li>
+<li class="fragment">Union Square</li>
+<li class="fragment">Cardiac</li>
+<li class="fragment">BuTinah (NYU-AD)</li>
+<li class="fragment">Teraflops are a measure of speed (FLOPS = floating point operations / second)</li>
+<li class="fragment">My MacBook Air is something like 10-15 GFlops to give a frame of reference.</li>
+<li class="fragment">If you're using more than 4-8GB or so of RAM, you will need to check to see how much memory is allocated to each node.</li>
+<li class="fragment">If you need more than that allocation, you'll need to request additional nodes.</li>
+<li class="fragment">Generally: before you use a particular queue, check to make sure there isn't anything special you need to do.</li>
+</ul>
+</section>
+<section id="bowery" class="slide level2">
+<h1>Bowery</h1>
+<ul>
+<li class="fragment">230 compute nodes</li>
+<li class="fragment">2528 cores</li>
+<li class="fragment">8.95 TB RAM</li>
+<li class="fragment">28.23 TFlops</li>
+<li class="fragment">Queues:
+<ul>
+<li class="fragment"><em>p12</em> - max 12hrs/6 jobs - up to 288(576) CPU cores</li>
+<li class="fragment"><em>p48</em> - max 48hrs/exclusive node - up to 64(128) CPU cores</li>
+<li class="fragment"><em>s48</em> - max 48hrs/500 jobs - up to 36(72) CPU cores</li>
+<li class="fragment"><em>interactive</em> - max 4hrs/2 jobs - up to 32 CPU cores</li>
+<li class="fragment"><em>bigmem</em> - max 48hrs/exclusive node - up to 96(192) CPU cores</li>
+<li class="fragment"><em>cuda</em> - max 48hrs/exclusive node</li>
+</ul></li>
+<li class="fragment">Software:
+<ul>
+<li class="fragment">R (3.0.1)</li>
+<li class="fragment">Matlab</li>
+<li class="fragment">Mathematica</li>
+<li class="fragment">Stata</li>
+<li class="fragment">Python</li>
+</ul></li>
+</ul>
+</section>
+<section id="union-square" class="slide level2">
+<h1>Union Square</h1>
+<ul>
+<li class="fragment">60 compute nodes</li>
+<li class="fragment">584 cores</li>
+<li class="fragment">1.5 TB RAM</li>
+<li class="fragment">4.47 TFlops</li>
+<li class="fragment">Queues:
+<ul>
+<li class="fragment"><em>ser2</em> - max 48hrs - up to 64(128) CPU cores</li>
+<li class="fragment"><em>serlong</em> - max 96hrs - up to 32(64) CPU cores</li>
+<li class="fragment"><em>interactive</em> - max 4hrs/2 jobs</li>
+</ul></li>
+<li class="fragment">Software:
+<ul>
+<li class="fragment">R (only up to 2.9.2)</li>
+<li class="fragment">Matlab</li>
+<li class="fragment">Mathematica</li>
+<li class="fragment">JAGS</li>
+<li class="fragment">Stata (parallel)</li>
+<li class="fragment">Python (only 2.x.x)</li>
+</ul></li>
+</ul>
+</section>
+<section id="cardiac" class="slide level2">
+<h1>Cardiac</h1>
+<ul>
+<li class="fragment">75% of this cluster is devoted to research group aimed at constructing a functional computer model of the beating human heart.</li>
+<li class="fragment">25% (or more if there are idle resources) are available to the rest of us.</li>
+<li class="fragment">62 compute nodes</li>
+<li class="fragment">1264 cores</li>
+<li class="fragment">2.47 TB RAM</li>
+<li class="fragment">9.12 TFlops</li>
+<li class="fragment">Queues:
+<ul>
+<li class="fragment"><em>p12</em> - max 12hrs/exclusive node - up to 192(384) CPU cores</li>
+<li class="fragment"><em>p48</em> - max 48hrs/exclusive node - up to 96(192) CPU cores</li>
+<li class="fragment"><em>ser2</em> - max 48hrs - up to 72(144) CPU cores</li>
+<li class="fragment"><em>serlong</em> - max 96hrs - up to 32(64) CPU cores</li>
+<li class="fragment"><em>interactive</em> - max 4hrs</li>
+</ul></li>
+<li class="fragment">Software:
+<ul>
+<li class="fragment">R (3.0.1)</li>
+<li class="fragment">Matlab</li>
+<li class="fragment">Mathematica</li>
+<li class="fragment">JAGS</li>
+</ul></li>
+</ul>
+</section>
+<section id="butinah" class="slide level2">
+<h1>BuTinah</h1>
+<ul>
+<li class="fragment">537 compute nodes</li>
+<li class="fragment">6464 cores</li>
+<li class="fragment">28 TB RAM</li>
+<li class="fragment">69.36 TFlops</li>
+<li class="fragment">Queues:
+<ul>
+<li class="fragment"><em>p12</em> - max 12hrs - up to 288(576) CPU cores</li>
+<li class="fragment"><em>p48</em> - max 48hrs - up to 64(128) CPU cores</li>
+<li class="fragment"><em>s48</em> - max 48hrs - up to 12 CPU cores per node</li>
+<li class="fragment"><em>s96</em> - max 96hrs - up to 12 CPU cores per node</li>
+<li class="fragment"><em>interactive</em> - max 4hrs</li>
+<li class="fragment"><em>bigmem</em> - max 48hrs - up to 12 CPU cores per node</li>
+<li class="fragment"><em>gpu</em> - max 48hrs</li>
+<li class="fragment"><em>route</em> - none</li>
+</ul></li>
+<li class="fragment">Software:
+<ul>
+<li class="fragment">Matlab</li>
+<li class="fragment">Mathematica</li>
+<li class="fragment">???</li>
+</ul></li>
+</ul>
+</section>
+<section id="using-the-hpc" class="slide level2">
+<h1>Using the HPC</h1>
+<ul>
+<li class="fragment">Using the HPC is as simple as creating a shell script which runs the things you want run.</li>
+<li class="fragment">We can run an R script from the command line with <code>Rscript filename.R</code></li>
+<li class="fragment">And we can use Stata's batch mode with <code>stata -b do filename</code> or <code>stata &lt; filename.do &gt; filename.log</code></li>
+<li class="fragment">This will save output to a log file of &quot;filename.log&quot;. Things you save manually during execution will be saved as normal.</li>
+<li class="fragment">StataMP is on one of the clusters, so enable parallelism with the line <code>set processors X</code> where X is the number of cores to use.</li>
+<li class="fragment">Running personally compiled programs is very easy, and is simply <code>./my_program</code></li>
+<li class="fragment">Of course, it isn't quite this simple, as our shell scripts have to have extra information for the queue scheduler.</li>
+</ul>
+</section>
+<section id="hpc-scripts" class="slide level2">
+<h1>HPC Scripts</h1>
+<ul>
+<li class="fragment">For simple tasks (for instance, that take less than 4 hours, and don't require many processing cores), we can use interactive mode.</li>
+<li class="fragment"><code>qsub -I -q interactive -l nodes=1:ppn=8,walltime=04:00:00</code></li>
+<li class="fragment">I'll assume at this point that you have a shell script running your R program or whatnot.</li>
+<li class="fragment">Turning it into a script ready to run on the HPC is as simple as adding a header like the following:</li>
+</ul>
+<div class="fragment">
+<pre><code>#PBS -V
+#PBS -S /bin/bash
+#PBS -N ocr-2014-02-19
+#PBS -l nodes=1:ppn=1,walltime=10:00:00
+#PBS -l mem=1GB
+#PBS -q s48
+#PBS -M ddd281@nyu.edu
+#PBS -m bea
+#PBS -w /scratch/ddd281/ocr_wd/
+#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}
+#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}</code></pre>
+</div>
+</section>
+<section id="pbs-options" class="slide level2">
+<h1>PBS options</h1>
+<ul>
+<li class="fragment">Let's go through line by line what this means.</li>
+<li class="fragment"><code>#PBS -V</code> - exports environment variables from current session to the job's session</li>
+<li class="fragment"><code>PBS -S /bin/bash</code> - which shell to use. No need to change this.</li>
+<li class="fragment"><code>#PBS -N ocr-2014-02-19</code> - a name for the job. This will be used in emails, and in naming some logfiles.</li>
+<li class="fragment"><code>#PBS -l nodes=1:ppn=1,walltime=10:00:00</code>
+<ul>
+<li class="fragment"><code>nodes=1</code> - tells the scheduler how many nodes to allocate to the job</li>
+<li class="fragment"><code>ppn=1</code> - how many processors per node?</li>
+<li class="fragment"><code>walltime=10:00:00</code> - how much time to allocate to this job (and NO longer)</li>
+</ul></li>
+<li class="fragment"><code>#PBS -l mem=1GB</code> - how much memory to allocate to this job (and NO longer)</li>
+<li class="fragment"><code>#PBS -q s48</code> - which queue should this job be placed in?</li>
+<li class="fragment"><code>#PBS -M ddd281@nyu.edu</code> - NYU email</li>
+<li class="fragment"><code>#PBS -m bea</code> - email me on begin, aborts, ends</li>
+<li class="fragment"><code>#PBS -w /scratch/ddd281/ocr_wd/</code> - sets the working directory for the job</li>
+<li class="fragment"><code>#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}</code> - location to redirect stderr</li>
+<li class="fragment"><code>#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}</code> - location to redirect stdout</li>
+<li class="fragment">Read <code>man qsub</code> for much more information on options.</li>
+</ul>
+</section>
+<section id="managing-the-queue" class="slide level2">
+<h1>Managing the Queue</h1>
+<ul>
+<li class="fragment"><code>qsub</code> to submit a job (pbs script)</li>
+<li class="fragment"><code>showq | grep ddd281</code> to view your jobs in the queue</li>
+<li class="fragment"><code>qdel 1234</code> to delete job number 1234</li>
+<li class="fragment"><code>qstat 1234</code> to see status report on job 1234</li>
+</ul>
+</section>
+<section id="enabling-software" class="slide level2">
+<h1>Enabling Software</h1>
+<ul>
+<li class="fragment">Not all software installed on the cluster is always available.</li>
+<li class="fragment">Often, you will need to load the appropriate module, first.</li>
+<li class="fragment">For instance, if you're on Bowery, to load R-3.0.1:</li>
+<li class="fragment"><code>module avail</code></li>
+<li class="fragment">Find the appropriate module name, <code>r/intel/3.0.1</code></li>
+<li class="fragment"><code>module show r</code> for more info (for instance, where binaries are stored, etc)</li>
+<li class="fragment">Load it, <code>module load r/intel/3.0.1</code></li>
+<li class="fragment">This would need to go in your pbs script before you try to run an R script.</li>
+<li class="fragment">(Similarly for Stata)</li>
+<li class="fragment">One hiccup, is you need to ensure that the <code>module</code> command is available:<br /><code>source /etc/profile.d/env-modules.sh</code></li>
+</ul>
+</section>
+<section id="example-time" class="slide level2">
+<h1>Example Time</h1>
+<ul>
+<li class="fragment">I find it is often useful to put placeholders in the raw pbs file and then run a helper script to set things up.</li>
+<li class="fragment">For instance, if I am using cross-validation to determine the number of topics to use in LDA.</li>
+<li class="fragment">I might parallelize this task by submitting a single job for each number of topics.</li>
+<li class="fragment">This will take a pretty significant chunk of time, as I must estimate the model k times (for k-fold CV).</li>
+<li class="fragment">This is an <strong>embarrassingly parallel</strong> task. Meaning that the computation at different numbers of topics are completely independent.</li>
+<li class="fragment">Then I can easily write an R script which will take two command line arguments (min/max number of topics) and perform the k-fold CV to get an estimate of the perplexity of the model at each number of topics within those bounds.</li>
+<li class="fragment">It outputs a datafile containing only a single matrix summarizing the output.</li>
+<li class="fragment">This script is on the next page.</li>
+</ul>
+</section>
+<section id="lda-cv-script" class="slide level2">
+<h1>LDA CV Script</h1>
+<ul>
+<li class="fragment"><code>hpc.R</code></li>
+</ul>
+<pre><code>args &lt;- commandArgs(trailingOnly = TRUE)
 
+if(length(args)!=2) stop(paste0(&quot;Not the right number of arguments!&quot;,args))
 
-        <ul>
-          <li><a href="https://github.com/ddimmery/NYU-HPC/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/ddimmery/NYU-HPC/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/ddimmery/NYU-HPC">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h3>
-<a name="nyu-hpc" class="anchor" href="#nyu-hpc"><span class="octicon octicon-link"></span></a>NYU HPC</h3>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/ddimmery">ddimmery</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
+args &lt;- as.double(args)
+load(&quot;s_africa_data.Rdata&quot;)
+require(cvTools)
+require(topicmodels)
+
+cvLDA &lt;- function(Ntopics,K=5) {
+  folds&lt;-cvFolds(nrow(dtm),K,1)
+  perplex &lt;- rep(NA,K)
+  llk &lt;- rep(NA,K)
+  for(i in unique(folds$which)){
+    which.test &lt;- folds$subsets[folds$which==i]
+    which.train &lt;- {1:nrow(dtm)}[-which.test]
+    dtm.train &lt;- dtm[which.train,]
+    dtm.test &lt;- dtm[which.test,]
+    lda.fit &lt;- LDA(dtm.train,Ntopics)
+    perplex[i] &lt;- perplexity(lda.fit,dtm.test)
+    llk[i] &lt;- logLik(lda.fit)
+  }
+  perplex &lt;- mean(perplex)
+  perpSD &lt;- sd(perplex)
+  llk &lt;- mean(llk)
+  llkSD &lt;- sd(llk)
+  return(c(K=Ntopics,perplexity=perplex,perpSD=perpSD,logLik=llk,logLikSD=llkSD))
+}
+
+Topics.to.Est &lt;- seq(args[1],args[2])
+cv.out &lt;- t(sapply(Topics.to.Est,cvLDA))
+name&lt;-paste0(&quot;cv.out.&quot;,min(Topics.to.Est),&quot;.&quot;,max(Topics.to.Est))
+assign(name,cv.out)
+save(list=name,file=paste0(name,&quot;.Rdata&quot;))</code></pre>
+</section>
+<section id="and-accompanying-pbs-script" class="slide level2">
+<h1>And accompanying PBS Script</h1>
+<ul>
+<li class="fragment">Note, here, that I actually had to install my own R (because a package I needed [topicmodels] wasn't available in 3.0.1)</li>
+<li class="fragment">I have to load the gsl module because topicmodels must be built from source in Linux, and it relies on the GNU Scientific Library dynamically (meaning that the library must be independently installed and available on the computer)</li>
+<li class="fragment">But note as well that the parameters passed to R aren't right. I don't want to estimate a model with INSERTMIN topics.</li>
+<li class="fragment"><p>I use a helper script to set things up for me.</p></li>
+<li class="fragment"><p><code>ldacv.pbs</code></p></li>
+</ul>
+<pre><code>#!/bin/bash
+#PBS -V
+#PBS -S /bin/bash
+#PBS -N ldacv-INSERTMIN-INSERTMAX
+#PBS -l nodes=1:ppn=1,walltime=12:00:00
+#PBS -l mem=8GB
+#PBS -q s48
+#PBS -M ddd281@nyu.edu
+#PBS -m bea
+#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}
+#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}
+
+set -e
+OLDDIR=`pwd`
+cd /scratch/ddd281/ldacv
+module load gsl/intel/1.15
+
+/home/ddd281/local/bin/Rscript --vanilla hpc.R INSERTMIN INSERTMAX
+
+cd $OLDDIR
+exit 0;</code></pre>
+</section>
+<section id="helper-script" class="slide level2">
+<h1>Helper Script</h1>
+<ul>
+<li class="fragment">This file is saved as the shell script <code>start_ldacv.sh</code></li>
+<li class="fragment">Now, all I have to do to submit a job is to type <code>./start_ldacv.sh 50 50</code></li>
+<li class="fragment">That would perform CV on a 50 topic model.</li>
+<li class="fragment">I could also submit a job for a range of models with <code>./start_ldacv.sh 10 13</code></li>
+</ul>
+<div class="fragment">
+<pre><code>#!/bin/bash
+set -e
+
+cat ldacv.pbs | sed &quot;s/INSERTMIN/$1/g&quot; | sed &quot;s/INSERTMAX/$2/g&quot; &gt; ldacv.${1}-${2}.pbs
+
+qsub ldacv.${1}-${2}.pbs
+
+rm ldacv.${1}-${2}.pbs</code></pre>
+</div>
+</section>
+<section id="combine-estimates" class="slide level2">
+<h1>Combine estimates</h1>
+<ul>
+<li class="fragment">And then to take all of these small data files and combine them, I can use a simple R script.</li>
+<li class="fragment">This will collect all the data files (of the format I created) in the current directory and put them into a single new matrix.</li>
+</ul>
+<pre><code>files&lt;-dir()
+files&lt;-files[grep(&quot;cv.out&quot;,files)]
+
+cv.out&lt;-NULL
+for(f in files) {
+    load(f)
+    vr&lt;-strsplit(f,&quot;.&quot;,fixed=TRUE)[[1]]
+    vr&lt;-paste(vr[-length(vr)],collapse=&quot;.&quot;)
+    cv.out&lt;-rbind(cv.out,get(vr))
+    rm(list=vr)
+}
+cv.out&lt;-cv.out[order(cv.out[,&quot;K&quot;]),]
+save(cv.out,file=&quot;ldacv_all.Rdata&quot;)</code></pre>
+</section>
+<section id="output" class="slide level2">
+<h1>Output</h1>
+<ul>
+<li class="fragment">All that work, and basically all I got was this graph:</li>
+</ul>
+<figure>
+<img src="figure/perplot.png" />
+</figure>
+</section>
+<section id="mapreduce" class="slide level2">
+<h1>mapReduce!</h1>
+<ul>
+<li class="fragment">Aaaand we've independently rediscovered mapReduce.</li>
+<li class="fragment">The map portion was in dividing my CV procedure up by number of topics.</li>
+<li class="fragment">The reduce portion was in a) performing CV on each and getting summaries and b) merging the datasets together.</li>
+<li class="fragment">But things are embarrassingly parallel, so it was much simpler to just treat all the jobs completely independently (no communication necessary)</li>
+<li class="fragment">Using actual parallelism for this (ie via <code>snow</code>) would only be more complicated and error prone</li>
+</ul>
+</section>
+<section id="courtesy" class="slide level2">
+<h1>Courtesy</h1>
+<ul>
+<li class="fragment">Since the HPC is a shared resource, we should try to be courteous in how we use it.</li>
+<li class="fragment">Use an interactive compute session when you want to compile something or test something.</li>
+<li class="fragment">Don't just do it on the login node - this will slow things down for everyone.</li>
+<li class="fragment">If you're submitting a bunch of little jobs (let's define &quot;little&quot; as &quot;less than an hour&quot;), then consider running a &quot;batch&quot; job:</li>
+</ul>
+<div class="fragment">
+<pre><code>#PBS -l nodes=&lt;N/12&gt;:ppn=12
+...
+cd directory_for_job1
+mpiexec -comm none -n 1 $executable arguments_for_job1 &gt; output 2&gt; error &amp;
+...
+cd directory_for_jobN
+mpiexec -comm none -n 1 $executable arguments_for_jobN &gt; output 2&gt; error &amp;
+wait</code></pre>
+<ul>
+<li class="fragment">This won't make the scheduler work quite so hard.</li>
+<li class="fragment">Always put <code>set -e</code> at the start of shell scripts! This will make it quit immediately upon encountering an error.</li>
+</ul>
+</div>
+</section>
     </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
+  </div>
+
+  <script src="reveal.js/lib/js/head.min.js"></script>
+  <script src="reveal.js/js/reveal.min.js"></script>
+
+  <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+        theme: 'simple', // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+          { src: 'reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+//          { src: 'reveal.js/plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; }, }
+//          { src: 'reveal.js/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+]});
+    </script>
   </body>
 </html>
