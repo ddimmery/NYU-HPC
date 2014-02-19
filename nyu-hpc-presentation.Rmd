@@ -189,6 +189,9 @@ bench/min(bench)
 - `cp src dst` to copy file `src` to `dst`
 - `rm src` to remove (delete) `src`
 - Make them recursive by adding the `-r` flag to them.
+- I use `rsync` to move files to and from the cluster, but you can also use WinSCP or gFTP or similar program.
+- Basic syntax is `rsync -azvr src dst` - There are some funky things with trailing slashes. (read the manpage)
+- These programs will need to have the `hpctunnel` active, first, and then you can log onto the individual clusters to transfer files.
 
 
 ## Standard Input / Output
@@ -229,6 +232,40 @@ bench/min(bench)
 - `$PATH` is your "search path" which lists (in order) where the shell will search for executable files.
 - Add a new folder to the path with `export PATH=/home/ddd281/bin:$PATH`
 
+
+## Example
+- `nyuhpc_update.sh`
+
+. . .
+
+```
+#! /usr/bin/env bash
+set -e
+
+if [ "`ps aux |grep hpctunnel|wc -l`" -lt "2" ] ; then 
+  echo "Need to have HPC's SSH tunnel active. Run ssh hpctunnel"
+  exit 0;
+fi
+
+if [ "$1" != "pdfs" ]; then
+  rsync -avzr --exclude '*.pdf' --delete cpp/ bowery:~/ocr_files/
+  exit 0;
+fi
+
+rsync -azvr --delete cpp/ bowery:~/ocr_files/
+
+exit 0;
+```
+
+## Extra Resources
+- Bash is Turing complete, so you can do "anything".
+- It does some weird things, though (look into the differences in quotation marks in bash)
+- There are a ton more places to look for inormation on shell scripts.
+- [Bash Beginner's Guide](http://www.tldp.org/LDP/Bash-Beginners-Guide/html/)
+- [Advanced Bash-Scripting Guide](http://www.tldp.org/LDP/abs/html/)
+- [Bash Shell Scripting Wikibook](http://en.wikibooks.org/wiki/Bash_Shell_Scripting)
+- And many many more
+
 ## Now onto HPC!
 - NYU HPC is a shared resource.
 - This means that we don't just "run" a program.
@@ -239,7 +276,6 @@ bench/min(bench)
 - We control everything via command line.
 - You may have to do special preparations to get things from your computer to work on the HPC.
 - For instance, if a program is compiled, you'll (probably) have to recompile on the HPC.
-
 
 ## Accessing the HPC
 - First, you need a faculty sponsor (Hi, Neal!)
@@ -307,7 +343,6 @@ User NetID
     - Mathematica
     - Stata
     - Python
-
 
 ## Union Square
 - 60 compute nodes
@@ -431,6 +466,7 @@ User NetID
 - (Similarly for Stata)
 - One hiccup, is you need to ensure that the `module` command is available:  
 `source /etc/profile.d/env-modules.sh`
+- If there's time, I'll talk about compiling software at the end.
 
 ## Example Time
 - I find it is often useful to put placeholders in the raw pbs file and then run a helper script to set things up.
@@ -591,3 +627,26 @@ wait
 
 - This won't make the scheduler work quite so hard.
 - Always put `set -e` at the start of shell scripts! This will make it quit immediately upon encountering an error.
+
+## Compiling R
+- First, I'll just talk about how to compile R, because I imagine this is the most common thing you'll need to compile.
+- Typically, compilation is accomplished with the following:  
+`./configure`  
+`make && make install`
+- But this would install systemwide, which we can't do on the HPC.
+- So we have to add `--prefix=/home/ddd281/local` to `configure`
+- We can then do `make && make install` as normal. This will install R to the appropriate directory.
+- This should work, but if not, you may need to ensure that the compiler is installed.
+- `module load gcc/4.7.3` (on bowery, versions may be different, so check `module avail`)
+- You can then either add `\home\ddd281\local\bin` to your PATH, or you can just call R with `\home\ddd281\local\bin\Rscript`
+
+## Compiling your own code
+- Compiling your own code can be a real pain.
+- If you need to link it to a library, you'll need to load the appropriate module, or install the library to your home directory.
+- NYU recommends using the Intel Compiler suite (which you'll need to load)  
+`module load intel/11.1.046`
+- And then compile with `icc` / `icpc` / etc
+- You probably also want to use some optimization flags. NYU provides the example of:  
+`-O2 -fPIC -align -Zp8 -axP -unroll -xP -ip`
+- I found that I had to add the flag `-shared-intel` to get my C++ to compile properly.
+- This whole process is a minefield, though. Be prepared to use Google.
