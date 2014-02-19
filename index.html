@@ -105,7 +105,7 @@ repfn &lt;-<span class="st"> </span>function(f, <span class="dt">n =</span> <spa
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">forLoop =</span> <span class="kw">repfn</span>(dofor), <span class="dt">tapply =</span> <span class="kw">repfn</span>(dotapp))
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>## forLoop  tapply 
-##   3.078   1.000</code></pre>
+##   3.167   1.000</code></pre>
 </div>
 </section>
 <section id="compiling-r-code" class="slide level2">
@@ -126,7 +126,7 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench,
 )
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp 
-##      3.078      1.000      3.099      3.053      1.063</code></pre>
+##      3.167      1.000      3.132      3.081      1.032</code></pre>
 </div>
 </section>
 <section id="compilation-speedup" class="slide level2">
@@ -138,6 +138,7 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 <li class="fragment">Most common functions (matrix math, etc) are already in compiled C++/FORTRAN, so gains on simple functions will be limited.</li>
 <li class="fragment">Adding in heavier computations gives more of an advantage to compiled functions:</li>
 </ul>
+<div class="fragment">
 <pre class="sourceCode r"><code class="sourceCode r">fun &lt;-<span class="st"> </span>function(x, <span class="dt">y =</span> Y, <span class="dt">g =</span> G) {
     a &lt;-<span class="st"> </span><span class="dv">1</span>:<span class="dv">5000</span> *<span class="st"> </span>g
     b &lt;-<span class="st"> </span>y -<span class="st"> </span><span class="dv">32</span>
@@ -152,7 +153,8 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 }
 bench2 &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">repfn</span>(fun), <span class="kw">repfn</span>(fun, <span class="dt">cmp =</span> <span class="ot">TRUE</span>))
 bench2/<span class="kw">min</span>(bench2)</code></pre>
-<pre><code>## [1] 1.335 1.000</code></pre>
+<pre><code>## [1] 1.243 1.000</code></pre>
+</div>
 </section>
 <section id="jit-compiling" class="slide level2">
 <h1>JIT Compiling</h1>
@@ -197,9 +199,9 @@ bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class
 <span class="kw">stopCluster</span>(cl)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##    forLoop     tapply    forComp forPreComp   tappComp  tappClus1 
-##      6.628      2.153      6.672      6.573      2.290      2.348 
+##      6.635      2.095      6.561      6.454      2.162      2.387 
 ##  tappClus2    forClus 
-##      1.000      2.844</code></pre>
+##      1.000      2.800</code></pre>
 </div>
 </section>
 <section id="more-multiprocess" class="slide level2">
@@ -226,9 +228,9 @@ cl &lt;-<span class="st"> </span><span class="kw">makeCluster</span>(<span class
 bench &lt;-<span class="st"> </span><span class="kw">c</span>(bench, <span class="dt">tappForEach =</span> (t1 -<span class="st"> </span>t0)/<span class="dv">100</span>)
 bench/<span class="kw">min</span>(bench)</code></pre>
 <pre><code>##     forLoop      tapply     forComp  forPreComp    tappComp   tappClus1 
-##       6.628       2.153       6.672       6.573       2.290       2.348 
+##       6.635       2.095       6.561       6.454       2.162       2.387 
 ##   tappClus2     forClus tappForEach 
-##       1.000       2.844       1.680</code></pre>
+##       1.000       2.800       2.033</code></pre>
 </div>
 </section>
 <section id="multiprocess-jagsstan" class="slide level2">
@@ -239,11 +241,16 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 <li class="fragment"><p>Check the documentation, but it looks pretty easy. <code>parJagsModel</code> and <code>parCodaSamples</code></p></li>
 <li class="fragment"><p>This package should take care of instantiating each pRNG with sufficiently different seeds.</p></li>
 <li class="fragment"><p>For stan, you don't get much help. Do your parallelism in such a way that you get a list of <code>stanfit</code> objects, then combine them with the helper function <code>sflist2stanfit</code>.</p></li>
-<li class="fragment"><p>So you could do something like:</p>
-<pre><code>parSapply(cl,function(i) stan(fit = f1, seed = seed, chains = 1, chain_id = i, refresh = -1))</code></pre></li>
+<li class="fragment"><p>So you could do something like:</p></li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">parSapply</span>(cl, function(i) <span class="kw">stan</span>(<span class="dt">fit =</span> f1, <span class="dt">seed =</span> seed, <span class="dt">chains =</span> <span class="dv">1</span>, <span class="dt">chain_id =</span> i, 
+    <span class="dt">refresh =</span> -<span class="dv">1</span>))</code></pre>
+<ul>
 <li class="fragment"><p>There are examples in the R documentation for <code>sflist2stanfit</code>, so check that out.</p></li>
 <li class="fragment"><p>By iterating the chainid, and having a consistent seed, stan should ensure that you get different pRNG sequences.</p></li>
 </ul>
+</div>
 </section>
 <section id="basic-nix-files-and-folders" class="slide level2">
 <h1>Basic *NIX files and folders</h1>
@@ -335,22 +342,22 @@ bench/<span class="kw">min</span>(bench)</code></pre>
 <li class="fragment"><code>nyuhpc_update.sh</code></li>
 </ul>
 <div class="fragment">
-<pre><code>#! /usr/bin/env bash
-set -e
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#! /usr/bin/env bash</span>
+<span class="kw">set</span> <span class="kw">-e</span>
 
-if [ &quot;`ps aux |grep hpctunnel|wc -l`&quot; -lt &quot;2&quot; ] ; then 
-  echo &quot;Need to have HPC&#39;s SSH tunnel active. Run ssh hpctunnel&quot;
-  exit 0;
-fi
+<span class="kw">if [</span> <span class="st">&quot;</span><span class="kw">`ps</span> aux <span class="kw">|grep</span> hpctunnel<span class="kw">|wc</span> -l<span class="kw">`</span><span class="st">&quot;</span> <span class="ot">-lt</span> <span class="st">&quot;2&quot;</span><span class="kw"> ]</span> ; <span class="kw">then</span> 
+  <span class="kw">echo</span> <span class="st">&quot;Need to have HPC&#39;s SSH tunnel active. Run ssh hpctunnel&quot;</span>
+  <span class="kw">exit</span> 0<span class="kw">;</span>
+<span class="kw">fi</span>
 
-if [ &quot;$1&quot; != &quot;pdfs&quot; ]; then
-  rsync -avzr --exclude &#39;*.pdf&#39; --delete cpp/ bowery:~/ocr_files/
-  exit 0;
-fi
+<span class="kw">if [</span> <span class="st">&quot;</span><span class="ot">$1</span><span class="st">&quot;</span> <span class="ot">!=</span> <span class="st">&quot;pdfs&quot;</span><span class="kw"> ]</span>; <span class="kw">then</span>
+  <span class="kw">rsync</span> -avzr --exclude <span class="st">&#39;*.pdf&#39;</span> --delete cpp/ bowery:~/ocr_files/
+  <span class="kw">exit</span> 0<span class="kw">;</span>
+<span class="kw">fi</span>
 
-rsync -azvr --delete cpp/ bowery:~/ocr_files/
+<span class="kw">rsync</span> -azvr --delete cpp/ bowery:~/ocr_files/
 
-exit 0;</code></pre>
+<span class="kw">exit</span> 0<span class="kw">;</span></code></pre>
 </div>
 </section>
 <section id="extra-resources" class="slide level2">
@@ -555,17 +562,17 @@ User NetID</code></pre>
 <li class="fragment">Turning it into a script ready to run on the HPC is as simple as adding a header like the following:</li>
 </ul>
 <div class="fragment">
-<pre><code>#PBS -V
-#PBS -S /bin/bash
-#PBS -N ocr-2014-02-19
-#PBS -l nodes=1:ppn=1,walltime=10:00:00
-#PBS -l mem=1GB
-#PBS -q s48
-#PBS -M ddd281@nyu.edu
-#PBS -m bea
-#PBS -w /scratch/ddd281/ocr_wd/
-#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}
-#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}</code></pre>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#PBS -V</span>
+<span class="co">#PBS -S /bin/bash</span>
+<span class="co">#PBS -N ocr-2014-02-19</span>
+<span class="co">#PBS -l nodes=1:ppn=1,walltime=10:00:00</span>
+<span class="co">#PBS -l mem=1GB</span>
+<span class="co">#PBS -q s48</span>
+<span class="co">#PBS -M ddd281@nyu.edu</span>
+<span class="co">#PBS -m bea</span>
+<span class="co">#PBS -w /scratch/ddd281/ocr_wd/</span>
+<span class="co">#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}</span>
+<span class="co">#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}</span></code></pre>
 </div>
 </section>
 <section id="pbs-options" class="slide level2">
@@ -634,40 +641,42 @@ User NetID</code></pre>
 <ul>
 <li class="fragment"><code>hpc.R</code></li>
 </ul>
-<pre><code>args &lt;- commandArgs(trailingOnly = TRUE)
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r">args &lt;-<span class="st"> </span><span class="kw">commandArgs</span>(<span class="dt">trailingOnly =</span> <span class="ot">TRUE</span>)
 
-if(length(args)!=2) stop(paste0(&quot;Not the right number of arguments!&quot;,args))
+if(<span class="kw">length</span>(args)!=<span class="dv">2</span>) <span class="kw">stop</span>(<span class="kw">paste0</span>(<span class="st">&quot;Not the right number of arguments!&quot;</span>,args))
 
-args &lt;- as.double(args)
-load(&quot;s_africa_data.Rdata&quot;)
-require(cvTools)
-require(topicmodels)
+args &lt;-<span class="st"> </span><span class="kw">as.double</span>(args)
+<span class="kw">load</span>(<span class="st">&quot;s_africa_data.Rdata&quot;</span>)
+<span class="kw">require</span>(cvTools)
+<span class="kw">require</span>(topicmodels)
 
-cvLDA &lt;- function(Ntopics,K=5) {
-  folds&lt;-cvFolds(nrow(dtm),K,1)
-  perplex &lt;- rep(NA,K)
-  llk &lt;- rep(NA,K)
-  for(i in unique(folds$which)){
-    which.test &lt;- folds$subsets[folds$which==i]
-    which.train &lt;- {1:nrow(dtm)}[-which.test]
-    dtm.train &lt;- dtm[which.train,]
-    dtm.test &lt;- dtm[which.test,]
-    lda.fit &lt;- LDA(dtm.train,Ntopics)
-    perplex[i] &lt;- perplexity(lda.fit,dtm.test)
-    llk[i] &lt;- logLik(lda.fit)
+cvLDA &lt;-<span class="st"> </span>function(Ntopics,<span class="dt">K=</span><span class="dv">5</span>) {
+  folds&lt;-<span class="kw">cvFolds</span>(<span class="kw">nrow</span>(dtm),K,<span class="dv">1</span>)
+  perplex &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="ot">NA</span>,K)
+  llk &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="ot">NA</span>,K)
+  for(i in <span class="kw">unique</span>(folds$which)){
+    which.test &lt;-<span class="st"> </span>folds$subsets[folds$which==i]
+    which.train &lt;-<span class="st"> </span>{<span class="dv">1</span>:<span class="kw">nrow</span>(dtm)}[-which.test]
+    dtm.train &lt;-<span class="st"> </span>dtm[which.train,]
+    dtm.test &lt;-<span class="st"> </span>dtm[which.test,]
+    lda.fit &lt;-<span class="st"> </span><span class="kw">LDA</span>(dtm.train,Ntopics)
+    perplex[i] &lt;-<span class="st"> </span><span class="kw">perplexity</span>(lda.fit,dtm.test)
+    llk[i] &lt;-<span class="st"> </span><span class="kw">logLik</span>(lda.fit)
   }
-  perplex &lt;- mean(perplex)
-  perpSD &lt;- sd(perplex)
-  llk &lt;- mean(llk)
-  llkSD &lt;- sd(llk)
-  return(c(K=Ntopics,perplexity=perplex,perpSD=perpSD,logLik=llk,logLikSD=llkSD))
+  perplex &lt;-<span class="st"> </span><span class="kw">mean</span>(perplex)
+  perpSD &lt;-<span class="st"> </span><span class="kw">sd</span>(perplex)
+  llk &lt;-<span class="st"> </span><span class="kw">mean</span>(llk)
+  llkSD &lt;-<span class="st"> </span><span class="kw">sd</span>(llk)
+  <span class="kw">return</span>(<span class="kw">c</span>(<span class="dt">K=</span>Ntopics,<span class="dt">perplexity=</span>perplex,<span class="dt">perpSD=</span>perpSD,<span class="dt">logLik=</span>llk,<span class="dt">logLikSD=</span>llkSD))
 }
 
-Topics.to.Est &lt;- seq(args[1],args[2])
-cv.out &lt;- t(sapply(Topics.to.Est,cvLDA))
-name&lt;-paste0(&quot;cv.out.&quot;,min(Topics.to.Est),&quot;.&quot;,max(Topics.to.Est))
-assign(name,cv.out)
-save(list=name,file=paste0(name,&quot;.Rdata&quot;))</code></pre>
+Topics.to.Est &lt;-<span class="st"> </span><span class="kw">seq</span>(args[<span class="dv">1</span>],args[<span class="dv">2</span>])
+cv.out &lt;-<span class="st"> </span><span class="kw">t</span>(<span class="kw">sapply</span>(Topics.to.Est,cvLDA))
+name&lt;-<span class="kw">paste0</span>(<span class="st">&quot;cv.out.&quot;</span>,<span class="kw">min</span>(Topics.to.Est),<span class="st">&quot;.&quot;</span>,<span class="kw">max</span>(Topics.to.Est))
+<span class="kw">assign</span>(name,cv.out)
+<span class="kw">save</span>(<span class="dt">list=</span>name,<span class="dt">file=</span><span class="kw">paste0</span>(name,<span class="st">&quot;.Rdata&quot;</span>))</code></pre>
+</div>
 </section>
 <section id="and-accompanying-pbs-script" class="slide level2">
 <h1>And accompanying PBS Script</h1>
@@ -675,30 +684,37 @@ save(list=name,file=paste0(name,&quot;.Rdata&quot;))</code></pre>
 <li class="fragment">Note, here, that I actually had to install my own R (because a package I needed [topicmodels] wasn't available in 3.0.1)</li>
 <li class="fragment">I have to load the gsl module because topicmodels must be built from source in Linux, and it relies on the GNU Scientific Library dynamically (meaning that the library must be independently installed and available on the computer)</li>
 <li class="fragment">But note as well that the parameters passed to R aren't right. I don't want to estimate a model with INSERTMIN topics.</li>
-<li class="fragment"><p>I use a helper script to set things up for me.</p></li>
-<li class="fragment"><p><code>ldacv.pbs</code></p></li>
+<li class="fragment">I use a helper script to set things up for me.</li>
 </ul>
-<pre><code>#!/bin/bash
-#PBS -V
-#PBS -S /bin/bash
-#PBS -N ldacv-INSERTMIN-INSERTMAX
-#PBS -l nodes=1:ppn=1,walltime=12:00:00
-#PBS -l mem=8GB
-#PBS -q s48
-#PBS -M ddd281@nyu.edu
-#PBS -m bea
-#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}
-#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}
+</section>
+<section id="pbs-script" class="slide level2">
+<h1>PBS Script</h1>
+<ul>
+<li class="fragment"><code>ldacv.pbs</code></li>
+</ul>
+<div class="fragment">
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#!/bin/bash</span>
+<span class="co">#PBS -V</span>
+<span class="co">#PBS -S /bin/bash</span>
+<span class="co">#PBS -N ldacv-INSERTMIN-INSERTMAX</span>
+<span class="co">#PBS -l nodes=1:ppn=1,walltime=12:00:00</span>
+<span class="co">#PBS -l mem=8GB</span>
+<span class="co">#PBS -q s48</span>
+<span class="co">#PBS -M ddd281@nyu.edu</span>
+<span class="co">#PBS -m bea</span>
+<span class="co">#PBS -e localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.e${PBS_JOBID}</span>
+<span class="co">#PBS -o localhost:${PBS_O_WORKDIR}/pbs_files/${PBS_JOBNAME}.o${PBS_JOBID}</span>
 
-set -e
-OLDDIR=`pwd`
-cd /scratch/ddd281/ldacv
-module load gsl/intel/1.15
+<span class="kw">set</span> <span class="kw">-e</span>
+<span class="ot">OLDDIR=</span><span class="kw">`pwd`</span>
+<span class="kw">cd</span> /scratch/ddd281/ldacv
+<span class="kw">module</span> load gsl/intel/1.15
 
-/home/ddd281/local/bin/Rscript --vanilla hpc.R INSERTMIN INSERTMAX
+<span class="kw">/home/ddd281/local/bin/Rscript</span> --vanilla hpc.R INSERTMIN INSERTMAX
 
-cd $OLDDIR
-exit 0;</code></pre>
+<span class="kw">cd</span> <span class="ot">$OLDDIR</span>
+<span class="kw">exit</span> 0<span class="kw">;</span></code></pre>
+</div>
 </section>
 <section id="helper-script" class="slide level2">
 <h1>Helper Script</h1>
@@ -709,14 +725,14 @@ exit 0;</code></pre>
 <li class="fragment">I could also submit a job for a range of models with <code>./start_ldacv.sh 10 13</code></li>
 </ul>
 <div class="fragment">
-<pre><code>#!/bin/bash
-set -e
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#!/bin/bash</span>
+<span class="kw">set</span> <span class="kw">-e</span>
 
-cat ldacv.pbs | sed &quot;s/INSERTMIN/$1/g&quot; | sed &quot;s/INSERTMAX/$2/g&quot; &gt; ldacv.${1}-${2}.pbs
+<span class="kw">cat</span> ldacv.pbs <span class="kw">|</span> <span class="kw">sed</span> <span class="st">&quot;s/INSERTMIN/</span><span class="ot">$1</span><span class="st">/g&quot;</span> <span class="kw">|</span> <span class="kw">sed</span> <span class="st">&quot;s/INSERTMAX/</span><span class="ot">$2</span><span class="st">/g&quot;</span> <span class="kw">&gt;</span> ldacv.<span class="ot">${1}</span>-<span class="ot">${2}</span>.pbs
 
-qsub ldacv.${1}-${2}.pbs
+<span class="kw">qsub</span> ldacv.<span class="ot">${1}</span>-<span class="ot">${2}</span>.pbs
 
-rm ldacv.${1}-${2}.pbs</code></pre>
+<span class="kw">rm</span> ldacv.<span class="ot">${1}</span>-<span class="ot">${2}</span>.pbs</code></pre>
 </div>
 </section>
 <section id="combine-estimates" class="slide level2">
@@ -725,28 +741,32 @@ rm ldacv.${1}-${2}.pbs</code></pre>
 <li class="fragment">And then to take all of these small data files and combine them, I can use a simple R script.</li>
 <li class="fragment">This will collect all the data files (of the format I created) in the current directory and put them into a single new matrix.</li>
 </ul>
-<pre><code>files&lt;-dir()
-files&lt;-files[grep(&quot;cv.out&quot;,files)]
+<div class="fragment">
+<pre class="sourceCode r"><code class="sourceCode r">files &lt;-<span class="st"> </span><span class="kw">dir</span>()
+files &lt;-<span class="st"> </span>files[<span class="kw">grep</span>(<span class="st">&quot;cv.out&quot;</span>, files)]
 
-cv.out&lt;-NULL
-for(f in files) {
-    load(f)
-    vr&lt;-strsplit(f,&quot;.&quot;,fixed=TRUE)[[1]]
-    vr&lt;-paste(vr[-length(vr)],collapse=&quot;.&quot;)
-    cv.out&lt;-rbind(cv.out,get(vr))
-    rm(list=vr)
+cv.out &lt;-<span class="st"> </span><span class="ot">NULL</span>
+for (f in files) {
+    <span class="kw">load</span>(f)
+    vr &lt;-<span class="st"> </span><span class="kw">strsplit</span>(f, <span class="st">&quot;.&quot;</span>, <span class="dt">fixed =</span> <span class="ot">TRUE</span>)[[<span class="dv">1</span>]]
+    vr &lt;-<span class="st"> </span><span class="kw">paste</span>(vr[-<span class="kw">length</span>(vr)], <span class="dt">collapse =</span> <span class="st">&quot;.&quot;</span>)
+    cv.out &lt;-<span class="st"> </span><span class="kw">rbind</span>(cv.out, <span class="kw">get</span>(vr))
+    <span class="kw">rm</span>(<span class="dt">list =</span> vr)
 }
-cv.out&lt;-cv.out[order(cv.out[,&quot;K&quot;]),]
-save(cv.out,file=&quot;ldacv_all.Rdata&quot;)</code></pre>
+cv.out &lt;-<span class="st"> </span>cv.out[<span class="kw">order</span>(cv.out[, <span class="st">&quot;K&quot;</span>]), ]
+<span class="kw">save</span>(cv.out, <span class="dt">file =</span> <span class="st">&quot;ldacv_all.Rdata&quot;</span>)</code></pre>
+</div>
 </section>
 <section id="output" class="slide level2">
 <h1>Output</h1>
 <ul>
 <li class="fragment">All that work, and basically all I got was this graph:</li>
 </ul>
+<div class="fragment">
 <figure>
 <img src="figure/perplot.png" />
 </figure>
+</div>
 </section>
 <section id="mapreduce" class="slide level2">
 <h1>mapReduce!</h1>
@@ -767,14 +787,14 @@ save(cv.out,file=&quot;ldacv_all.Rdata&quot;)</code></pre>
 <li class="fragment">If you're submitting a bunch of little jobs (let's define &quot;little&quot; as &quot;less than an hour&quot;), then consider running a &quot;batch&quot; job:</li>
 </ul>
 <div class="fragment">
-<pre><code>#PBS -l nodes=&lt;N/12&gt;:ppn=12
-...
-cd directory_for_job1
-mpiexec -comm none -n 1 $executable arguments_for_job1 &gt; output 2&gt; error &amp;
-...
-cd directory_for_jobN
-mpiexec -comm none -n 1 $executable arguments_for_jobN &gt; output 2&gt; error &amp;
-wait</code></pre>
+<pre class="sourceCode bash"><code class="sourceCode bash"><span class="co">#PBS -l nodes=&lt;N/12&gt;:ppn=12</span>
+<span class="kw">...</span>
+<span class="kw">cd</span> directory_for_job1
+<span class="kw">mpiexec</span> -comm none -n 1 $executable arguments_for_job1 &gt; output 2<span class="kw">&gt;</span> error &amp;
+<span class="kw">...</span>
+<span class="kw">cd</span> directory_for_jobN
+<span class="kw">mpiexec</span> -comm none -n 1 $executable arguments_for_jobN &gt; output 2<span class="kw">&gt;</span> error &amp;
+<span class="kw">wait</span></code></pre>
 <ul>
 <li class="fragment">This won't make the scheduler work quite so hard.</li>
 <li class="fragment">Always put <code>set -e</code> at the start of shell scripts! This will make it quit immediately upon encountering an error.</li>
